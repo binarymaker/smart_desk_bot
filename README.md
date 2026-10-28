@@ -1,6 +1,6 @@
 # Smart Desk Bot
 
-A small, cute, USB-powered desk companion robot for the office. It has a 1.3" OLED "face", connects to an Android phone over **Bluetooth Low Energy only** (no Wi-Fi), and works like a mix of a smartwatch, a personal assistant and a tiny pet. It also has a menu with a few mini games.
+A small, cute, USB-powered desk companion robot for the office. It has a 1.3" OLED "face", connects to a personal Android phone over **Bluetooth Low Energy only** (no Wi-Fi) and to the office laptop over **USB**, and works like a mix of a smartwatch, a personal assistant and a tiny pet. It also has a menu with a few mini games.
 
 > Status: concept / planning. This is a hobby project built with AI-assisted ("vibe") coding, plus a 3D-printed enclosure.
 
@@ -18,7 +18,8 @@ A small, cute, USB-powered desk companion robot for the office. It has a 1.3" OL
 | 6 | Light entertainment | Games (Dino, Flappy, Snake, Dice, Decision maker) + "I'm bored" quotes and ideas |
 | 7 | Cute 3D-printed case | Designed in Fusion 360, printed on a Creality printer |
 | 8 | Low power, always on | USB powered, dims/sleeps, protects the OLED from burn-in |
-| 9 | Own Android app | Vibe-coded in Android Studio with Gemini: to-do, WFH planner, visitor card, quotes, settings |
+| 9 | Own Android app | Vibe-coded in Android Studio with Gemini: to-do, WFH planner, visitor card, quotes, faces, settings |
+| 10 | Office laptop link (USB) | Outlook mail + meetings, Teams (to be tested), laptop lock, time - work data stays off the personal phone |
 
 ---
 
@@ -64,7 +65,8 @@ flowchart LR
     C3 -- I2C --> OLED[1.3in OLED SH1106]
     TOUCH[Touch pad] --> C3
     C3 --> BUZ[Buzzer]
-    PHONE[Android phone] <-- BLE --> C3
+    PHONE[Personal Android phone] <-- BLE --> C3
+    LAPTOP[Office laptop] <-- USB serial COM port --> C3
 ```
 
 ---
@@ -153,9 +155,18 @@ void loop() {
 
 ---
 
-## 4. Phone integration and Android companion app (BLE only)
+## 4. Connectivity: personal phone (BLE) and office laptop (USB)
 
-The robot has no internet. The **phone is the gateway**: it reads time, notifications, calendar, weather, etc., and sends small packets over BLE.
+The robot has no internet. Two gateways feed it data:
+
+| Source | Link | Sends to the robot |
+|--------|------|--------------------|
+| **Personal Android phone** (OnePlus 12) | BLE | WhatsApp, calls, SMS, personal email, to-do, WFH plan, visitor card, quotes, face control, time |
+| **Office laptop** | USB serial (COM port) | Outlook mail, Outlook meetings, Teams (to be tested), laptop locked / unlocked, time |
+
+Office email, Outlook and Teams are **not available on the personal phone** (company policy), so the **laptop is the only source of work data** (see 4.7).
+
+The phone reads time, notifications, calendar, weather, etc., and sends small packets over BLE.
 
 ### 4.1 Options
 
@@ -183,6 +194,7 @@ One custom GATT service with a few characteristics:
 | `visitor` | Phone -> Bot | Visitor card: name, messages, email, contact number, show/hide flags |
 | `quotes` | Phone -> Bot | Custom quotes, slogans, activities, decision-maker option lists |
 | `settings` | Phone -> Bot | Brightness, sound, reminders, night hours, privacy mode |
+| `face` | Phone -> Bot | Emotion id (happy, sad, love...), how long to show it, or "back to automatic" |
 | `event` | Bot -> Phone | Touch events: find phone, mute call, focus started, to-do done |
 | `log` | Bot -> Phone | Visitor log (touch times while you were away) |
 
@@ -223,6 +235,7 @@ Fully vibe-coded in **Android Studio with Gemini** (built-in AI assistant).
 | Visitor card | Your name, message per state (Away / WFH / Leave / After hours), email, contact number, show/hide toggles, live preview of the 128x64 screen | `visitor` |
 | Quotes & ideas | Built-in list + your own quotes, slogans and "bored" activities; option lists for the decision maker (e.g. lunch places) | `quotes` |
 | Notifications | Pick which apps are forwarded, privacy mode | `notify` |
+| Faces | Pick a face / emotion for the robot, set how long, preview, "back to automatic" | `face` |
 | Reminders | Water, break, focus durations, night hours | `settings` |
 | Visitor log | Who-touched-when list while you were away | `log` |
 | Robot settings | Brightness, sound, robot name, pair / forget | `settings` |
@@ -237,7 +250,117 @@ Fully vibe-coded in **Android Studio with Gemini** (built-in AI assistant).
 
 #### Android permissions
 
-`BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT` (Android 12+), `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_CONNECTED_DEVICE` (Android 14+), Notification access (for forwarding), `READ_CALENDAR` (optional).
+`BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT` (Android 12+), `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_CONNECTED_DEVICE` (Android 14+), Notification access (for forwarding), `READ_PHONE_STATE` + `READ_CALL_LOG` (incoming call number), `READ_CONTACTS` (number -> name), `READ_CALENDAR` (optional), `ANSWER_PHONE_CALLS` (optional, reject call from the robot).
+
+### 4.5 Notifications and calls (personal phone)
+
+| Source | Robot shows | Contact not saved |
+|--------|-------------|-------------------|
+| Phone call | Call icon + contact name | Number, e.g. `+91 98xxx xxxxx` |
+| Hidden / private call | "Private number" | - |
+| WhatsApp message | WhatsApp icon + name (+ text if privacy mode is off) | Number or `~ProfileName` |
+| WhatsApp group | WhatsApp icon + group + sender | Sender number |
+| WhatsApp voice / video call | "Call from \<name\>" | Number |
+| Personal email (Gmail etc.) | Mail icon + sender name + subject | Whatever the notification shows |
+| SMS / others | App icon + sender + short text | Number / sender id |
+
+How the app gets it:
+- Messages and email: `NotificationListenerService` (title = sender, text = message).
+- Phone calls: phone-state listener gives the number, then a contacts lookup (`ContactsContract.PhoneLookup`) gives the name.
+- Display rule: **contact name -> number -> "Unknown" / "Private number"**.
+
+Limits:
+- Long names scroll; message text is cut to about 2 lines on 128x64.
+- U8g2 fonts show Latin letters and digits. Names saved in non-Latin scripts (Tamil, Hindi, ...) are sent as the number instead. Emojis are removed.
+- Privacy mode (default ON at the office) shows only icon + name / number, no message text.
+
+### 4.6 Phone compatibility (OnePlus 12)
+
+| Item | Detail |
+|------|--------|
+| Phone Bluetooth | 5.4, full BLE support (backward compatible with the ESP32-C3's BLE 5.0) |
+| Android | 14 / 15, covered by the permissions above |
+| Range | About 5-10 m in an office: good for "at desk" vs. "away" detection |
+
+OxygenOS closes background apps aggressively. To keep the link alive:
+1. Settings -> Battery -> Desk Buddy app -> **Don't optimize / Allow background activity**.
+2. Keep the app's **foreground service** (small permanent notification).
+3. Optional: pair via Android **Companion Device Manager** so the robot is treated like a smartwatch.
+
+First test before any app code: flash a NimBLE server example, connect with **nRF Connect** on the phone, and write a value to a characteristic.
+
+### 4.7 Office laptop link (USB)
+
+The ESP32-C3's native USB shows up on the laptop as a **COM port**. A small Python script on the laptop reads Outlook (and later Teams) and sends one short JSON line per event at 115200 baud. No Wi-Fi, no cloud.
+
+#### Feasibility
+
+| Source | Method | Status |
+|--------|--------|--------|
+| Outlook (classic) new mail | Outlook COM `NewMailEx` event via `pywin32` | **Verified** - [laptop_link/outlook_check.py](laptop_link/outlook_check.py) reads sender + subject |
+| Outlook calendar (incl. recurring meetings) | Outlook COM, calendar `Restrict` + `IncludeRecurrences` | **Verified** - today's meetings listed correctly |
+| Laptop locked / unlocked | Windows session lock events | Planned |
+| Time sync | Laptop clock | Planned |
+| Teams chats, calls, mentions | Windows notification listener (Teams notification style must be **Windows**) | **To be tested**. Fallback: read the local Windows notification database read-only (undocumented, may break with updates) |
+| New Outlook | No COM interface | Not possible directly; use Windows notifications |
+| Teams messages / presence via Microsoft Graph | Needs app registration + admin consent | Not planned |
+
+Environment: Python 3.10 + `pywin32` (available on the laptop), classic Outlook.
+
+#### Mail rules (laptop side)
+
+1. Only **new unread** mail that arrives while the script runs (no history).
+2. **Block list** for automated senders (newsletters, daily digests, tool notifications, HR / training reminders).
+3. **VIP list** (manager, team) -> special face + beep.
+4. Short sender name: drop department suffixes in brackets, `LAST First` -> `First L.`.
+5. Subject cut to about 20 characters; `Re:` / `Fwd:` shown as "\<name\> replied".
+6. Optional: subjects with "urgent" / "action required" -> alert face.
+
+#### Meeting rules
+
+| Case | Robot behavior |
+|------|----------------|
+| Location is a Teams meeting | Teams icon instead of location text |
+| Physical location | Pin icon + short location |
+| Overlapping events | Shorter / Teams meeting shown as "now", the other as "also" |
+| Next meeting | Countdown: "Weekly sync in 5 min" + alert face and beep at reminder time |
+| Declined (`ResponseStatus`) or Free (`BusyStatus`) | Skipped |
+| Out of office (`BusyStatus`) | Feeds the visitor card |
+| Currently in a meeting | Visitor card: **"In a meeting until 16:00"** |
+
+```
+Next:  15:30  Weekly sync    [Teams]   in 12 min
+Now:   In meeting until 16:00          (visitor card)
+Free:  No more meetings today :)
+```
+
+#### USB message format (laptop -> robot, one JSON line each)
+
+| Type | Example |
+|------|---------|
+| Time | `{"t":"time","epoch":1793000000,"tz":330}` |
+| Mail | `{"t":"mail","from":"Ravi K.","sub":"Weekly report","vip":1}` |
+| Meeting | `{"t":"meet","now":"Daily sync","until":"15:30","next":"Weekly sync","at":"15:30","teams":1}` |
+| Lock | `{"t":"lock","v":1}` |
+| Teams | `{"t":"teams","from":"Priya S.","kind":"chat"}` (`chat` / `call` / `mention`) |
+
+On the robot: `Serial.readStringUntil('\n')` + ArduinoJson, then the same event queue as BLE.
+
+#### Work data rules
+
+- Work data flows **laptop -> robot only**. It is never forwarded over BLE to the personal phone.
+- The robot shows only **icon + short sender + short subject / meeting title**. No mail body is ever read.
+- Nothing work-related is stored in flash; RAM only, cleared when the laptop disconnects.
+- Get **IT approval** for a personal USB device and a local script that reads Outlook / Teams.
+- Do not paste real work mail / meeting content into external tools when testing; "it works" or the error message is enough.
+- If the laptop cuts USB power on sleep, the robot restarts; time comes back from the laptop or phone on the next sync.
+
+#### Laptop files
+
+| File | Status |
+|------|--------|
+| [laptop_link/outlook_check.py](laptop_link/outlook_check.py) | Done: read-only check, prints last 10 mails + today's meetings |
+| `laptop_link/desk_link.py` | Planned: live link (time, new mail, meetings, lock state) -> COM port |
 
 ---
 
@@ -259,6 +382,9 @@ Animated eyes (Cozmo / EMO style) drawn with rounded rectangles, so they can bli
 | Focused | Focus timer running |
 | Annoyed | Sitting too long without a break |
 | Welcome back | Phone reconnects after being away |
+| Alert / serious | VIP mail, meeting about to start |
+
+Faces can also be set manually from the app (`face`), then return to automatic.
 
 Extra: a simple **mood system** (happiness/energy values) that changes with your interactions, like a small Tamagotchi.
 
@@ -266,10 +392,12 @@ Extra: a simple **mood system** (happiness/energy values) that changes with your
 
 | Feature | Source |
 |---------|--------|
-| Clock + date (synced from phone, no NTP needed) | Phone |
-| Notification mirror (WhatsApp, SMS, Teams, Outlook, etc.) with app icons | Phone |
-| Incoming call alert with caller name | Phone |
-| Next meeting countdown ("Standup in 5 min") | Phone calendar (custom app) |
+| Clock + date (no NTP needed) | Phone or laptop |
+| Personal notifications (WhatsApp, SMS, personal email) with app icons | Phone |
+| Incoming call alert with caller name (or number if not saved) | Phone |
+| Outlook new mail (short sender + subject, VIP highlight) | Laptop (USB) |
+| Teams chat / call / mention | Laptop (USB, to be tested) |
+| Next meeting countdown ("Standup in 5 min") | Laptop (Outlook calendar) |
 | Phone battery and charging indicator | Phone |
 | Weather of the day | Phone (mobile data) |
 | Find my phone (menu item -> phone rings) | Phone |
@@ -294,6 +422,11 @@ The robot decides its mode from **phone connection + today's plan (from the WFH 
 | Not connected | Leave / Holiday | Any | Visitor card: **On leave, back on \<date\>** |
 | Not connected | Office | Outside office hours | Visitor card: **Gone for the day** + sleep face |
 | Not connected | Unknown (no time sync after power cut) | - | Visitor card: generic **Not at desk** |
+
+Laptop signals (when the laptop is plugged in):
+- **Laptop locked** for more than 2 min also starts visitor mode (faster than waiting for the phone to drop).
+- If a meeting is running, the visitor card says **"In a meeting until \<end time\>"**.
+- Laptop not connected (unplugged / WFH) -> the laptop signal is ignored.
 
 ```mermaid
 stateDiagram-v2
@@ -416,6 +549,7 @@ About 100 built-in items are stored in flash; your own items come from the app (
 flowchart TD
     main[main loop / scheduler] --> input[Input: touch pad]
     main --> ble[BLE service: phone link]
+    main --> usb[USB serial: laptop link]
     main --> sm[App state machine]
     sm --> face[Face engine]
     sm --> apps[Apps: clock, notifications, focus, to-do, bored, stats]
@@ -427,6 +561,7 @@ flowchart TD
     games --> disp
     visitor --> disp
     ble --> events[Event queue]
+    usb --> events
     input --> events
     events --> sm
     settings --> nvs[(NVS: settings, schedule, visitor card, quotes)]
@@ -434,7 +569,7 @@ flowchart TD
 
 Principles:
 - Non-blocking code (`millis()` based), no `delay()` in main logic.
-- Event queue between BLE / inputs and the UI state machine.
+- Event queue between BLE / USB / inputs and the UI state machine.
 - Each screen/app is its own module with `enter()`, `update()`, `draw()`, `exit()`.
 
 ### 6.1 Planned project structure (Arduino IDE sketch)
@@ -451,6 +586,7 @@ smart_desk_bot/
 │           ├── ui/               # menu, screens, icons (U8g2 / MUI)
 │           ├── face/             # eyes, emotions, animations
 │           ├── ble/              # Chronos / custom GATT service
+│           ├── usb/              # laptop link: JSON lines over USB serial
 │           ├── input/            # touch pad gestures
 │           ├── apps/             # clock, notifications, focus, todo, bored, stats
 │           ├── games/            # dino, flappy, snake, dice, decision
@@ -458,6 +594,7 @@ smart_desk_bot/
 │           ├── settings/         # NVS storage
 │           └── assets/           # XBM bitmaps, built-in quotes as .h files
 ├── android-app/                  # "Desk Buddy" Kotlin app (Android Studio + Gemini)
+├── laptop_link/                  # Python scripts for the office laptop (Outlook / Teams -> USB)
 ├── enclosure/
 │   ├── fusion360/                # .f3d source files
 │   └── stl/                      # printable exports
@@ -511,12 +648,14 @@ Workflow: measure parts -> model in Fusion 360 -> export STL -> slice -> test-pr
 | 2. BLE link test | Chronos app: time sync, notifications | Phone notification shows on bot |
 | 3. Menu + settings | Menu tree, NVS settings, brightness, privacy mode | Settings survive reboot |
 | 4. Assistant features | Focus timer, break/water reminders, desk time | Reminders fire correctly |
-| 5. Games and fun | Dino, Flappy, Snake, Dice, Decision maker, I'm bored | All playable, high scores saved |
-| 6. Android app v1 | Desk Buddy: pairing, custom GATT, time sync, notifications, to-do | To-do visible and tickable on bot |
-| 7. Android app v2 | WFH planner, visitor card editor, quotes, visitor log | Schedule stored on bot |
-| 8. Presence + visitor mode | Mode decision table, visitor card pages, welcome back summary | Correct card on Office / WFH / Leave days |
-| 9. Enclosure | Fusion 360 design, test prints, final print | Everything fits inside |
-| 10. Polish | Sounds, more emotions, mood system, QR code | Daily use at office |
+| 5. Laptop link | `desk_link.py`: time, Outlook mail + meetings, lock state over USB; robot screens | New mail and next meeting show on bot |
+| 6. Games and fun | Dino, Flappy, Snake, Dice, Decision maker, I'm bored | All playable, high scores saved |
+| 7. Android app v1 | Desk Buddy: pairing, custom GATT, time sync, notifications + calls (name / number), to-do, faces | To-do visible and tickable on bot |
+| 8. Android app v2 | WFH planner, visitor card editor, quotes, visitor log | Schedule stored on bot |
+| 9. Presence + visitor mode | Mode decision (phone + plan + laptop lock + meetings), visitor card, welcome back | Correct card on Office / WFH / Leave days |
+| 10. Teams test | Windows notification listener for Teams | Teams chat shows on bot (or documented as not possible) |
+| 11. Enclosure | Fusion 360 design, test prints, final print | Everything fits inside |
+| 12. Polish | Sounds, more emotions, mood system, QR code | Daily use at office |
 
 ---
 
@@ -526,5 +665,9 @@ Workflow: measure parts -> model in Fusion 360 -> export STL -> slice -> test-pr
 - [ ] Office hours (for "Back soon" vs. "Gone for the day").
 - [ ] Exact OLED module (SH1106 vs SSD1306, I2C vs SPI) and its dimensions.
 - [ ] Which Creality printer model (affects tolerances and print size).
-- [ ] Which phone apps matter most for notifications (Teams, Outlook, WhatsApp...).
+- [ ] Which personal apps to forward from the phone (WhatsApp, SMS, Gmail...).
+- [ ] IT approval for the USB device and the Outlook / Teams script on the office laptop.
+- [ ] VIP list and blocked automated senders for Outlook mail.
+- [ ] Does Teams show up in Windows notifications (notification listener test)?
+- [x] Python can read classic Outlook mail and calendar on the office laptop (verified).
 - [ ] Is a battery wanted later, or USB power only?

@@ -681,6 +681,8 @@ Inside `src/`, include files with relative paths, e.g. `#include "src/face/face.
 
 ### 7.1 Design ideas
 
+![Case concept](docs/case_concept.svg)
+
 - Small robot head / mini retro TV shape, about 50-60 mm wide.
 - The OLED is the face; the case gives it a "helmet" with small ears or an antenna.
 - Touch pad hidden under a thin (0.8-1 mm) top wall: "pat the head". Mark the spot with a small embossed dot or a different color.

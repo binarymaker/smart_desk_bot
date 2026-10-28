@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="620" viewBox="0 0 1180 620" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6f7f9"/>
+      <stop offset="1" stop-color="#dde1e5"/>
+    </linearGradient>
+    <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9aa3ab"/>
+      <stop offset="1" stop-color="#7d868e"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1180" height="620" fill="#ffffff"/>
+
+  <text x="40" y="38" font-size="22" font-weight="600" fill="#22272e">Smart Desk Bot - office case concept</text>
+  <text x="40" y="58" font-size="13" fill="#5b636b">Scale 4 px = 1 mm | approx. 56 W x 57 H x 36 D mm (67 mm high with antenna) | for Creality CR-10 SE</text>
+
+  <!-- FRONT VIEW -->
+  <ellipse cx="380" cy="360" rx="112" ry="6" fill="#000" opacity="0.08"/>
+  <line x1="380" y1="130" x2="380" y2="102" stroke="#8a939b" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="380" cy="94" r="8" fill="#6aa89c" stroke="#4f8579" stroke-width="1.5"/>
+  <rect x="254" y="190" width="14" height="64" rx="6" fill="#6aa89c" stroke="#4f8579" stroke-width="1.5"/>
+  <rect x="492" y="190" width="14" height="64" rx="6" fill="#6aa89c" stroke="#4f8579" stroke-width="1.5"/>
+  <rect x="340" y="310" width="80" height="16" fill="#c9ced3" stroke="#8a939b" stroke-width="1.5"/>
+  <rect x="268" y="130" width="224" height="184" rx="40" fill="url(#body)" stroke="#8a939b" stroke-width="2"/>
+  <rect x="300" y="160" width="160" height="104" rx="18" fill="#2b2f36"/>
+  <rect x="318" y="178" width="124" height="68" rx="6" fill="#0b0f14"/>
+  <rect x="340" y="192" width="30" height="38" rx="9" fill="#e8f6ff"/>
+  <rect x="390" y="192" width="30" height="38" rx="9" fill="#e8f6ff"/>
+  <rect x="284" y="322" width="192" height="30" rx="10" fill="url(#base)" stroke="#6b737a" stroke-width="1.5"/>
+  <rect x="296" y="350" width="30" height="6" rx="3" fill="#333a40"/>
+  <rect x="434" y="350" width="30" height="6" rx="3" fill="#333a40"/>
+
+  <!-- front labels -->
+  <g font-size="13" fill="#22272e" text-anchor="end">
+    <text x="235" y="98">Antenna (accent colour)</text>
+    <text x="235" y="172">1.3in OLED face (SH1106)</text>
+    <text x="235" y="226">Side ears (accent / TPU)</text>
+    <text x="235" y="330">Weighted base</text>
+    <text x="235" y="346" fill="#5b636b">(steel nut or coin inside)</text>
+    <text x="235" y="372">TPU non-slip feet</text>
+  </g>
+  <g stroke="#9aa3ab" stroke-width="1" fill="#9aa3ab">
+    <line x1="241" y1="94" x2="372" y2="94"/><circle cx="372" cy="94" r="2"/>
+    <line x1="241" y1="168" x2="318" y2="184"/><circle cx="318" cy="184" r="2"/>
+    <line x1="241" y1="222" x2="254" y2="222"/><circle cx="254" cy="222" r="2"/>
+    <line x1="241" y1="334" x2="284" y2="334"/><circle cx="284" cy="334" r="2"/>
+    <line x1="241" y1="368" x2="300" y2="353"/><circle cx="300" cy="353" r="2"/>
+  </g>
+
+  <!-- front dimensions -->
+  <g stroke="#5b636b" stroke-width="1">
+    <line x1="268" y1="385" x2="492" y2="385"/>
+    <line x1="268" y1="379" x2="268" y2="391"/>
+    <line x1="492" y1="379" x2="492" y2="391"/>
+    <line x1="525" y1="130" x2="525" y2="356"/>
+    <line x1="519" y1="130" x2="531" y2="130"/>
+    <line x1="519" y1="356" x2="531" y2="356"/>
+  </g>
+  <text x="380" y="402" font-size="13" fill="#5b636b" text-anchor="middle">56 mm</text>
+  <text x="545" y="247" font-size="13" fill="#5b636b" text-anchor="middle" transform="rotate(-90 545 247)">57 mm</text>
+  <text x="380" y="432" font-size="14" font-weight="600" fill="#22272e" text-anchor="middle">FRONT VIEW</text>
+
+  <!-- SIDE VIEW -->
+  <ellipse cx="820" cy="360" rx="76" ry="6" fill="#000" opacity="0.08"/>
+  <rect x="790" y="310" width="60" height="16" fill="#c9ced3" stroke="#8a939b" stroke-width="1.5"/>
+  <g transform="rotate(8 820 318)">
+    <line x1="870" y1="130" x2="870" y2="102" stroke="#8a939b" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="870" cy="94" r="8" fill="#6aa89c" stroke="#4f8579" stroke-width="1.5"/>
+    <rect x="748" y="130" width="144" height="184" rx="30" fill="url(#body)" stroke="#8a939b" stroke-width="2"/>
+    <rect x="740" y="160" width="10" height="104" rx="3" fill="#2b2f36"/>
+    <rect x="798" y="190" width="44" height="64" rx="12" fill="#6aa89c" stroke="#4f8579" stroke-width="1.5"/>
+    <ellipse cx="780" cy="129" rx="10" ry="3" fill="#6aa89c" stroke="#4f8579" stroke-width="1"/>
+    <line x1="872" y1="136" x2="872" y2="308" stroke="#8a939b" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <rect x="886" y="280" width="8" height="14" rx="2" fill="#2b2f36"/>
+  </g>
+  <rect x="756" y="322" width="128" height="30" rx="10" fill="url(#base)" stroke="#6b737a" stroke-width="1.5"/>
+  <rect x="766" y="350" width="24" height="6" rx="3" fill="#333a40"/>
+  <rect x="850" y="350" width="24" height="6" rx="3" fill="#333a40"/>
+
+  <!-- side labels -->
+  <g font-size="13" fill="#22272e">
+    <text x="640" y="74">Touch pad under thin top wall ("pat here")</text>
+    <text x="600" y="258">Face tilted ~8 deg up</text>
+    <text x="915" y="232">Back cover (M2 screws or snap-fit)</text>
+    <text x="915" y="301">USB-C to docking station</text>
+  </g>
+  <g stroke="#9aa3ab" stroke-width="1" fill="#9aa3ab">
+    <line x1="770" y1="80" x2="807" y2="121"/><circle cx="807" cy="121" r="2"/>
+    <line x1="700" y1="252" x2="758" y2="215"/><circle cx="758" cy="215" r="2"/>
+    <line x1="885" y1="228" x2="910" y2="228"/><circle cx="885" cy="228" r="2"/>
+    <line x1="894" y1="297" x2="910" y2="297"/><circle cx="894" cy="297" r="2"/>
+  </g>
+
+  <!-- side dimension -->
+  <g stroke="#5b636b" stroke-width="1">
+    <line x1="748" y1="385" x2="892" y2="385"/>
+    <line x1="748" y1="379" x2="748" y2="391"/>
+    <line x1="892" y1="379" x2="892" y2="391"/>
+  </g>
+  <text x="820" y="402" font-size="13" fill="#5b636b" text-anchor="middle">36 mm</text>
+  <text x="820" y="432" font-size="14" font-weight="600" fill="#22272e" text-anchor="middle">SIDE VIEW</text>
+
+  <!-- colour legend -->
+  <line x1="40" y1="460" x2="1140" y2="460" stroke="#e3e6ea"/>
+  <text x="40" y="490" font-size="14" font-weight="600" fill="#22272e">Office colour scheme</text>
+  <rect x="40" y="505" width="22" height="22" rx="4" fill="#e9ecef" stroke="#8a939b"/>
+  <text x="72" y="521" font-size="13" fill="#22272e">Body: matte light grey / white PLA</text>
+  <rect x="330" y="505" width="22" height="22" rx="4" fill="#2b2f36"/>
+  <text x="362" y="521" font-size="13" fill="#22272e">Face bezel: charcoal PLA (filament change)</text>
+  <rect x="660" y="505" width="22" height="22" rx="4" fill="#6aa89c"/>
+  <text x="692" y="521" font-size="13" fill="#22272e">Accent: sage PLA / TPU (ears, antenna, touch dot)</text>
+  <rect x="40" y="540" width="22" height="22" rx="4" fill="#8a939b"/>
+  <text x="72" y="556" font-size="13" fill="#22272e">Base: mid grey PLA</text>
+  <text x="40" y="592" font-size="12" fill="#5b636b">Concept sketch only. Measure the OLED module and ESP32-C3 board with calipers before modelling in Fusion 360.</text>
+</svg>

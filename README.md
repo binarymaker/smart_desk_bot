@@ -16,7 +16,7 @@ A small, cute, USB-powered desk companion robot for the office. It has a 1.3" OL
 | 4 | Presence + visitor mode | Phone connected = at desk. Not connected = visitor card (Away / WFH / Leave) based on the WFH plan from the app |
 | 5 | Personal assistant | Reminders, focus timer, breaks, water, to-dos |
 | 6 | Light entertainment | Games (Dino, Flappy, Snake, Dice, Decision maker) + "I'm bored" quotes and ideas |
-| 7 | Cute 3D-printed case | Designed in Fusion 360, printed on a Creality printer |
+| 7 | Cute 3D-printed case | Designed in Fusion 360, printed on a Creality CR-10 SE |
 | 8 | Low power, always on | USB powered, dims/sleeps, protects the OLED from burn-in |
 | 9 | Own Android app | Vibe-coded in Android Studio with Gemini: to-do, WFH planner, visitor card, quotes, faces, settings |
 | 10 | Office laptop link (USB) | Outlook mail + meetings, Teams (to be tested), laptop lock, time - work data stays off the personal phone |
@@ -61,12 +61,12 @@ The TTP223 output is push-pull and active HIGH, so the pin is a plain `INPUT` (n
 
 ```mermaid
 flowchart LR
-    USB[USB-C 5V] --> C3[ESP32-C3]
+    DOCK[Docking station USB port] -- 5V always on --> C3[ESP32-C3]
     C3 -- I2C --> OLED[1.3in OLED SH1106]
     TOUCH[Touch pad] --> C3
     C3 --> BUZ[Buzzer]
     PHONE[Personal Android phone] <-- BLE --> C3
-    LAPTOP[Office laptop] <-- USB serial COM port --> C3
+    LAPTOP[Office laptop] <-- USB serial via dock when docked --> C3
 ```
 
 ---
@@ -147,7 +147,7 @@ void loop() {
 | Tool | Use |
 |------|-----|
 | Fusion 360 | Enclosure design |
-| Creality Print / OrcaSlicer / Cura | Slicing for the Creality printer |
+| Creality Print / OrcaSlicer / Cura | Slicing for the Creality CR-10 SE |
 | GIMP | Draw icons / face frames and export as `.xbm` for U8g2 |
 | nRF Connect (Android) | Debug BLE services and characteristics |
 | Android Studio + Gemini | Vibe-coded Kotlin companion app (phone side only) |
@@ -254,6 +254,8 @@ Fully vibe-coded in **Android Studio with Gemini** (built-in AI assistant).
 
 ### 4.5 Notifications and calls (personal phone)
 
+Forwarded by default: **WhatsApp (messages + calls), phone calls, SMS** and other app notifications selected in the app.
+
 | Source | Robot shows | Contact not saved |
 |--------|-------------|-------------------|
 | Phone call | Call icon + contact name | Number, e.g. `+91 98xxx xxxxx` |
@@ -293,6 +295,8 @@ First test before any app code: flash a NimBLE server example, connect with **nR
 
 The ESP32-C3's native USB shows up on the laptop as a **COM port**. A small Python script on the laptop reads Outlook (and later Teams) and sends one short JSON line per event at 115200 baud. No Wi-Fi, no cloud.
 
+The robot is plugged into the **docking station**: the laptop sees the COM port whenever it is docked. The `time` message doubles as a heartbeat; no message for 2 minutes = laptop link down (undocked, asleep or script stopped).
+
 #### Feasibility
 
 | Source | Method | Status |
@@ -301,7 +305,7 @@ The ESP32-C3's native USB shows up on the laptop as a **COM port**. A small Pyth
 | Outlook calendar (incl. recurring meetings) | Outlook COM, calendar `Restrict` + `IncludeRecurrences` | **Verified** - today's meetings listed correctly |
 | Laptop locked / unlocked | Windows session lock events | Planned |
 | Time sync | Laptop clock | Planned |
-| Teams chats, calls, mentions | Windows notification listener (Teams notification style must be **Windows**) | **To be tested**. Fallback: read the local Windows notification database read-only (undocumented, may break with updates) |
+| Teams chats, calls, meeting calls, mentions | Windows notification listener (Teams notification style must be **Windows**) | **To be tested**. Fallback: read the local Windows notification database read-only (undocumented, may break with updates) |
 | New Outlook | No COM interface | Not possible directly; use Windows notifications |
 | Teams messages / presence via Microsoft Graph | Needs app registration + admin consent | Not planned |
 
@@ -334,6 +338,21 @@ Now:   In meeting until 16:00          (visitor card)
 Free:  No more meetings today :)
 ```
 
+#### Teams calls and meeting calls
+
+| Case | Robot shows | Sound (see 5.7) |
+|------|-------------|-----------------|
+| Someone calls you on Teams | Teams icon + **"Calling..."** + caller name, ringing animation, surprised face | Teams chime, repeats |
+| Someone calls you into a meeting ("X is calling you to join") | Teams icon + **"Meeting call"** + caller + short meeting title | Teams chime, repeats |
+| Meeting starts (Outlook calendar) | **"Starting now: Weekly sync"** | Two soft beeps |
+| Call answered / declined | Ringing stops | - |
+| Call missed | "Missed Teams call: \<name\>" stays in the notification list | - |
+
+- Teams call pop-ups are Windows notifications, read with the same notification listener as Teams chats. Teams settings: notification style = **Windows**, calls not muted.
+- Ringing stops when the call notification disappears (answered / declined) or after 45 s.
+- A tap on the robot only **mutes the tone**; the call is answered on the laptop.
+- If Teams notifications cannot be read: meeting start from Outlook (verified) still rings "Starting now"; 1:1 Teams calls then need the notification-database fallback.
+
 #### USB message format (laptop -> robot, one JSON line each)
 
 | Type | Example |
@@ -342,7 +361,9 @@ Free:  No more meetings today :)
 | Mail | `{"t":"mail","from":"Ravi K.","sub":"Weekly report","vip":1}` |
 | Meeting | `{"t":"meet","now":"Daily sync","until":"15:30","next":"Weekly sync","at":"15:30","teams":1}` |
 | Lock | `{"t":"lock","v":1}` |
-| Teams | `{"t":"teams","from":"Priya S.","kind":"chat"}` (`chat` / `call` / `mention`) |
+| Teams message | `{"t":"teams","kind":"chat","from":"Priya S."}` (`chat` / `mention`) |
+| Teams call | `{"t":"teams","kind":"call","from":"Priya S.","state":"ring"}` / `{"t":"teams","kind":"call","state":"end"}` |
+| Teams meeting call | `{"t":"teams","kind":"meetcall","from":"Priya S.","meet":"Weekly sync","state":"ring"}` |
 
 On the robot: `Serial.readStringUntil('\n')` + ArduinoJson, then the same event queue as BLE.
 
@@ -353,7 +374,7 @@ On the robot: `Serial.readStringUntil('\n')` + ArduinoJson, then the same event 
 - Nothing work-related is stored in flash; RAM only, cleared when the laptop disconnects.
 - Get **IT approval** for a personal USB device and a local script that reads Outlook / Teams.
 - Do not paste real work mail / meeting content into external tools when testing; "it works" or the error message is enough.
-- If the laptop cuts USB power on sleep, the robot restarts; time comes back from the laptop or phone on the next sync.
+- Powered from the docking station, the robot keeps running when the laptop sleeps or is undocked; only the data link drops.
 
 #### Laptop files
 
@@ -396,7 +417,8 @@ Extra: a simple **mood system** (happiness/energy values) that changes with your
 | Personal notifications (WhatsApp, SMS, personal email) with app icons | Phone |
 | Incoming call alert with caller name (or number if not saved) | Phone |
 | Outlook new mail (short sender + subject, VIP highlight) | Laptop (USB) |
-| Teams chat / call / mention | Laptop (USB, to be tested) |
+| Teams chat / mention | Laptop (USB, to be tested) |
+| Teams call / meeting call: "Calling..." screen + cute chime | Laptop (USB, to be tested) |
 | Next meeting countdown ("Standup in 5 min") | Laptop (Outlook calendar) |
 | Phone battery and charging indicator | Phone |
 | Weather of the day | Phone (mobile data) |
@@ -412,16 +434,31 @@ Extra: a simple **mood system** (happiness/energy values) that changes with your
 
 ### 5.3 Presence and visitor mode
 
-The robot decides its mode from **phone connection + today's plan (from the WFH planner) + time**:
+The robot decides its mode from **phone connection + today's plan (from the WFH planner) + time + whether you arrived today**:
 
-| Phone | Today's plan | Time | Robot mode |
-|-------|--------------|------|-----------|
-| Connected | Any (also WFH) | Any | **Normal mode**. On a WFH day this means you came to the office anyway, so it switches back to normal |
-| Not connected | Office | Office hours | Visitor card: **Away from desk, back soon** |
-| Not connected | WFH | Any | Visitor card: **Working from home today** |
-| Not connected | Leave / Holiday | Any | Visitor card: **On leave, back on \<date\>** |
-| Not connected | Office | Outside office hours | Visitor card: **Gone for the day** + sleep face |
-| Not connected | Unknown (no time sync after power cut) | - | Visitor card: generic **Not at desk** |
+| Phone | Today's plan | Time | Arrived today? | Robot mode |
+|-------|--------------|------|----------------|-----------|
+| Connected | Any (also WFH) | Any | - | **Normal mode**. On a WFH day this means you came to the office anyway, so it switches back to normal |
+| Not connected | Office | Before arrival cut-off (14:00) | No | Visitor card: **"\<Name\> will be in soon. Please wait or contact him."** + contact page |
+| Not connected | Office | After arrival cut-off (14:00) | No | Visitor card: **"\<Name\> is not in the office today."** + contact page (absent) |
+| Not connected | Office | Office hours | Yes | Visitor card: **Away from desk, back soon** |
+| Not connected | Office | After office end | Yes | Visitor card: **Gone for the day** + sleep face |
+| Not connected | WFH | Any | - | Visitor card: **Working from home today** |
+| Not connected | Leave / Holiday / Weekend | Any | - | Visitor card: **On leave, back on \<date\>** |
+| Not connected | Unknown (no time sync since power-up) | - | - | Visitor card: generic **Not at desk** |
+
+**Arrived today** = the phone connected or the laptop was unlocked at least once since midnight. Reset at midnight.
+
+| Office time setting | Default | Changed from |
+|---------------------|---------|--------------|
+| Arrival cut-off | 14:00 | App (`schedule`) / `config.h` |
+| Office end | 18:00 (assumed) | App (`schedule`) / `config.h` |
+
+**Time (the robot has no RTC chip):**
+- The laptop script sends `time` over USB every minute; the phone sends `time` on every BLE connect.
+- Between syncs the ESP32 keeps time with its own crystal (a few seconds drift per day).
+- After a power loss the time is unknown until the next sync: the robot shows the generic card and skips time-based rules.
+- The robot must **stay powered when the laptop is not at the desk** (see 5.6), otherwise it cannot show the card on absent / WFH days.
 
 Laptop signals (when the laptop is plugged in):
 - **Laptop locked** for more than 2 min also starts visitor mode (faster than waiting for the phone to drop).
@@ -444,11 +481,27 @@ stateDiagram-v2
 
 ```
 +----------------------------+   +----------------------------+   +----------------------------+
-|   (^_^)  Hi, welcome!      |   | <Name> is working from     |   | Urgent?                    |
-|                            |   | home today.                |   | Mail: name@company.com     |
-|                            |   | Back in office: Thu 30 Oct |   | Call: +91 xxxxx xxxxx      |
+|   (^_^)  Hi, welcome!      |   | Gokul is working from      |   | Urgent? Mail:              |
+|                            |   | home today.                |   | <email user>               |
+| Gokul Arunachalam          |   | Back in office: Thu 30 Oct |   | @<company domain>          |
+| Sr. Tech Lead - Software   |   |                            |   | Call: <phone>              |
 +----------------------------+   +----------------------------+   +----------------------------+
 ```
+
+**Visitor card information (entered in the Desk Buddy app, sent via `visitor`, stored on the robot in NVS)**
+
+| Field | Required | Example | Display note (`6x10` font = 21 chars per line) |
+|-------|----------|---------|-----------------------------------------------|
+| Full name | Yes | Gokul Arunachalam | Fits |
+| Short name | Yes | Gokul | Used in messages ("Gokul is ...") |
+| Job title | Optional | Sr. Tech Lead - Software | Keep <= 24 chars or use the `4x6` font |
+| Company | Optional | Company name | Optional extra page |
+| Email | Optional | name@company.com | Split at `@` over two lines if too long |
+| Contact number | Optional | Desk phone or mobile | Fits |
+| Show / hide flags | Yes | Email on, number on | Per field |
+| Messages per state | Optional | Away / WFH / Leave / Not in today / Gone for the day | Defaults below if empty |
+
+Use a plain `-` instead of `–` (en dash): U8g2 `_tf` fonts only cover Latin-1. Nothing personal is stored in this repo.
 
 Message examples (editable in the app):
 - Away: "\<Name\> is not at the desk right now, but will be back soon."
@@ -461,7 +514,7 @@ Message examples (editable in the app):
 
 Important details:
 - The schedule and visitor card are **stored on the robot (NVS)**, because on WFH days the phone is not there to tell it. The app syncs the next 8 weeks every time it connects.
-- While USB powered, the robot keeps time on its own after one phone sync. After a power cut it shows the generic card until the phone syncs time again.
+- While powered, the robot keeps time on its own after one sync from the laptop or phone (see "Time" above).
 - Presence is debounced: the phone must be gone for more than 2 minutes (BLE disconnect or very weak RSSI) before visitor mode starts.
 
 ### 5.4 Menu
@@ -536,10 +589,29 @@ About 100 built-in items are stored in flash; your own items come from the app (
 
 ### 5.6 Power and display care
 
-- USB powered, always on.
-- Brightness set in Settings; night mode by schedule (time comes from the phone).
+- USB powered only (no battery), always on.
+- **Power source: docking station.** On absent / WFH days the laptop is not at the desk, so the robot must not depend on laptop power. The dock gives always-on 5 V plus the laptop data link when docked.
+  - Test once: undock the laptop and check the robot stays on (some docks cut USB power without a host). If it does, use a USB wall charger instead (power only, no laptop data).
+- Brightness set in Settings; night mode by schedule (time comes from the laptop or phone).
 - **OLED burn-in protection**: animated face (never static), small pixel shift every minute, screen dims after inactivity.
 - Wi-Fi off, CPU at 80 MHz, BLE connection interval tuned for low power, light sleep when idle.
+
+### 5.7 Sound cues (passive buzzer)
+
+| Event | Tone |
+|-------|------|
+| Teams call / meeting call | Cute rising 3-note chime ("bee-boo-bee"), repeats every 2 s until answered / ended (max 45 s) |
+| Phone / WhatsApp call | Classic double ring, repeats until the call ends (max 30 s) |
+| Meeting starts / reminder | Two soft beeps |
+| VIP mail | Short chirp |
+| Normal notification | Single tick (silent in privacy mode / DND) |
+| Visitor touch | Happy "hello" blip |
+| Games | Jump / score / game-over blips |
+
+Rules:
+- A tap on the robot mutes the current ringtone.
+- Sound off, Do Not Disturb or night hours -> screen only, no sound.
+- Melodies are played non-blocking with `tone()` (LEDC PWM), so the face keeps animating while ringing.
 
 ---
 
@@ -605,7 +677,7 @@ Inside `src/`, include files with relative paths, e.g. `#include "src/face/face.
 
 ---
 
-## 7. Enclosure (Fusion 360 + Creality)
+## 7. Enclosure (Fusion 360 + Creality CR-10 SE)
 
 ### 7.1 Design ideas
 
@@ -620,6 +692,9 @@ Inside `src/`, include files with relative paths, e.g. `#include "src/face/face.
 
 | Item | Value |
 |------|-------|
+| Printer | Creality CR-10 SE: 220 x 220 x 265 mm build volume, direct-drive Sprite extruder, auto bed leveling, 0.4 mm nozzle |
+| Slicer | Creality Print (official CR-10 SE profile) or OrcaSlicer / Cura with the CR-10 SE profile |
+| Print speed | Slow for the case (about 60-100 mm/s) for clean small details, even though the printer can go much faster |
 | Wall thickness | 1.6-2.0 mm |
 | Fit tolerance (part to part) | 0.2-0.3 mm |
 | OLED window | Measure your module with calipers (modules vary); add a recessed ledge to hold the glass |
@@ -634,6 +709,7 @@ Inside `src/`, include files with relative paths, e.g. `#include "src/face/face.
 2. Back cover (USB-C cutout, screw holes)
 3. Internal display / PCB / touch pad holder
 4. Optional: ears / antenna / stand
+5. Optional: TPU non-slip feet or soft ears (the direct-drive extruder handles flexible filament)
 
 Workflow: measure parts -> model in Fusion 360 -> export STL -> slice -> test-print the display window and USB cutout first (small test pieces) -> print full case.
 
@@ -653,21 +729,31 @@ Workflow: measure parts -> model in Fusion 360 -> export STL -> slice -> test-pr
 | 7. Android app v1 | Desk Buddy: pairing, custom GATT, time sync, notifications + calls (name / number), to-do, faces | To-do visible and tickable on bot |
 | 8. Android app v2 | WFH planner, visitor card editor, quotes, visitor log | Schedule stored on bot |
 | 9. Presence + visitor mode | Mode decision (phone + plan + laptop lock + meetings), visitor card, welcome back | Correct card on Office / WFH / Leave days |
-| 10. Teams test | Windows notification listener for Teams | Teams chat shows on bot (or documented as not possible) |
+| 10. Teams test | Windows notification listener for Teams chats, calls and meeting calls | Teams call rings on the bot (or documented as not possible) |
 | 11. Enclosure | Fusion 360 design, test prints, final print | Everything fits inside |
 | 12. Polish | Sounds, more emotions, mood system, QR code | Daily use at office |
 
 ---
 
-## 9. Open questions
+## 9. Decisions
 
-- [ ] Name, email and contact number (desk phone or mobile) to show on the visitor card.
-- [ ] Office hours (for "Back soon" vs. "Gone for the day").
-- [ ] Exact OLED module (SH1106 vs SSD1306, I2C vs SPI) and its dimensions.
-- [ ] Which Creality printer model (affects tolerances and print size).
-- [ ] Which personal apps to forward from the phone (WhatsApp, SMS, Gmail...).
-- [ ] IT approval for the USB device and the Outlook / Teams script on the office laptop.
-- [ ] VIP list and blocked automated senders for Outlook mail.
-- [ ] Does Teams show up in Windows notifications (notification listener test)?
-- [x] Python can read classic Outlook mail and calendar on the office laptop (verified).
-- [ ] Is a battery wanted later, or USB power only?
+| Topic | Decision | Details in |
+|-------|----------|------------|
+| Visitor card | Entered in the Desk Buddy app (name, title, email, number, show/hide, messages); stored on the robot | 5.3 |
+| Office hours | Not arrived by **14:00** = absent for the day; office end 18:00 (default, editable) | 5.3 |
+| Printer | **Creality CR-10 SE** | 7.2 |
+| Phone forwarding | WhatsApp (messages + calls), phone calls, SMS, other selected app notifications | 4.5 |
+| Robot power | **USB only**, no battery, from the **docking station** | 5.6 |
+| Work data | Office laptop over USB; classic Outlook mail + calendar readable from Python (verified) | 4.7 |
+| IDE / UI | Arduino IDE 2.x + U8g2 | 3 |
+| Input | One TTP223 touch pad | 5.4 |
+
+### Pending checks (to do during the build)
+
+| Check | When | Fallback |
+|-------|------|----------|
+| OLED module: confirm SH1106, I2C address, outer dimensions with calipers | Phase 0 | Switch U8g2 constructor to SSD1306 |
+| Dock keeps USB power when the laptop is undocked | Phase 0 | USB wall charger (no laptop data) |
+| IT approval for the USB device and the Outlook / Teams script | Before phase 5 | Phone-only features |
+| VIP list + blocked automated senders for Outlook | Phase 5 | Show all new mail |
+| Teams chats / calls readable from Windows notifications | Phase 10 | Outlook meeting-start ring only |
